@@ -1,0 +1,1226 @@
+/* ==========================================================================
+   Nexora Bank Design System - Premium FinTech Theme
+   ========================================================================== */
+
+:root {
+  --nexora-navy-dark: #080d1a;
+  --nexora-sidebar-bg: #0b1328;
+  --nexora-sidebar-hover: #141f3d;
+  --nexora-sidebar-active: #1d4ed8;
+  --nexora-canvas-bg: #f3f6fb;
+  --nexora-card-bg: #ffffff;
+  --nexora-card-border: #e8eef7;
+  
+  --nexora-text-heading: #0f172a;
+  --nexora-text-body: #334155;
+  --nexora-text-muted: #64748b;
+  --nexora-text-dim: #94a3b8;
+  
+  --nexora-blue-primary: #2563eb;
+  --nexora-blue-hover: #1d4ed8;
+  --nexora-blue-glow: rgba(37, 99, 235, 0.25);
+  
+  --nexora-teal: #06b6d4;
+  --nexora-emerald: #10b981;
+  --nexora-rose: #f43f5e;
+  --nexora-purple: #8b5cf6;
+  --nexora-amber: #f59e0b;
+  
+  --nexora-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --nexora-shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --nexora-shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* Base resets & layout */
+.nexora-app-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--nexora-canvas-bg);
+  font-family: var(--font-sans);
+  color: var(--nexora-text-body);
+}
+
+/* Sidebar Styles */
+.nexora-sidebar {
+  width: 250px;
+  min-width: 250px;
+  background: var(--nexora-sidebar-bg);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 100;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nexora-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 24px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+}
+
+.nexora-logo-mark {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nexora-logo-text {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.nexora-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nexora-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  color: #94a3b8;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.nexora-nav-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nexora-nav-item.active {
+  background: #1d4ed8;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);
+}
+
+.nexora-nav-item svg {
+  flex-shrink: 0;
+}
+
+/* Sidebar Promo Card */
+.nexora-sidebar-promo {
+  position: relative;
+  background: linear-gradient(145deg, #131d3d 0%, #0d152b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 18px 16px;
+  margin-top: 24px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.nexora-promo-image-box {
+  width: 100%;
+  height: 90px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.nexora-promo-image-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nexora-promo-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.nexora-promo-subtitle {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.nexora-promo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #2563eb;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nexora-promo-btn:hover {
+  background: #1d4ed8;
+  transform: translateX(2px);
+}
+
+/* Header Styles */
+.nexora-main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nexora-header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--nexora-card-border);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+}
+
+.nexora-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 9px 18px;
+  width: 440px;
+  max-width: 100%;
+  transition: all 0.2s ease;
+}
+
+.nexora-search-bar:focus-within {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.nexora-search-bar input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.9rem;
+  color: #0f172a;
+  width: 100%;
+}
+
+.nexora-search-bar input::placeholder {
+  color: #94a3b8;
+}
+
+.nexora-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.nexora-icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nexora-icon-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.nexora-notif-dot {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.nexora-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+
+.nexora-user-profile:hover {
+  background: #f1f5f9;
+}
+
+.nexora-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.nexora-user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.nexora-user-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.nexora-user-role {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* Main Dashboard Canvas */
+.nexora-content-container {
+  padding: 24px 32px 64px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Mountain Scenic Hero Banner */
+.nexora-hero-banner {
+  position: relative;
+  min-height: 200px;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 26px 30px;
+  color: #ffffff;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.35);
+  background-color: #091226;
+}
+
+.nexora-hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-size: cover;
+  background-position: center 38%;
+  opacity: 0.72;
+  z-index: 1;
+  transition: transform 0.4s ease;
+}
+
+.nexora-hero-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(8, 15, 34, 0.88) 0%, rgba(13, 26, 56, 0.65) 50%, rgba(6, 18, 41, 0.78) 100%);
+  z-index: 2;
+}
+
+.nexora-hero-content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.nexora-hero-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.nexora-hero-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.nexora-eye-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.nexora-eye-btn:hover {
+  color: #ffffff;
+}
+
+.nexora-hero-balance {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+
+.nexora-hero-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #34d399;
+}
+
+.nexora-hero-right {
+  font-style: italic;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  text-align: right;
+  max-width: 200px;
+  line-height: 1.4;
+}
+
+.nexora-hero-footer {
+  position: relative;
+  z-index: 3;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 14px;
+}
+
+/* Quick Actions 6-Card Row */
+.nexora-quick-actions-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .nexora-quick-actions-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .nexora-quick-actions-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.nexora-action-card {
+  background: #ffffff;
+  border: 1px solid var(--nexora-card-border);
+  border-radius: 16px;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--nexora-shadow-sm);
+}
+
+.nexora-action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--nexora-shadow-md);
+  border-color: #cbd5e1;
+}
+
+.nexora-action-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.nexora-action-card:hover .nexora-action-icon {
+  transform: scale(1.08);
+}
+
+.nexora-action-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+/* 2-Column Dashboard Grid */
+.nexora-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1100px) {
+  .nexora-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card Container */
+.nexora-card {
+  background: #ffffff;
+  border: 1px solid var(--nexora-card-border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--nexora-shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.nexora-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.nexora-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.nexora-link-action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.nexora-link-action:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* Transactions Table */
+.nexora-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.nexora-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px 14px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.nexora-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.nexora-table tr:last-child td {
+  border-bottom: none;
+}
+
+.nexora-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.nexora-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.nexora-tx-desc-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nexora-tx-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nexora-tx-desc-main {
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.nexora-tx-desc-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.nexora-amount-positive {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.nexora-amount-negative {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.nexora-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* Security Banner */
+.nexora-security-card {
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 18px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  gap: 16px;
+}
+
+.nexora-security-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #14b8a6;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.35);
+}
+
+.nexora-security-text-box {
+  flex: 1;
+}
+
+.nexora-security-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f766e;
+  margin-bottom: 2px;
+}
+
+.nexora-security-desc {
+  font-size: 0.8rem;
+  color: #134e4a;
+  line-height: 1.4;
+}
+
+.nexora-security-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Right Column: Your Accounts */
+.nexora-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.nexora-account-row:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.nexora-account-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nexora-account-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.nexora-account-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.nexora-account-mask {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: var(--font-mono);
+}
+
+.nexora-account-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+}
+
+.nexora-account-balance {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.nexora-account-tag-primary {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.nexora-account-subtext {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+/* Donut Chart & Spending Overview */
+.nexora-spending-card {
+  margin-top: 20px;
+}
+
+.nexora-donut-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.nexora-donut-chart-box {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  flex-shrink: 0;
+}
+
+.nexora-donut-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.nexora-donut-center-amount {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.nexora-donut-center-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nexora-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.nexora-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.nexora-legend-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+}
+
+.nexora-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.nexora-legend-pct {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Upgrade Platinum Card */
+.nexora-platinum-card {
+  position: relative;
+  background: linear-gradient(135deg, #091226 0%, #172554 100%);
+  border-radius: 20px;
+  padding: 24px;
+  color: #ffffff;
+  overflow: hidden;
+  margin-top: 20px;
+  box-shadow: 0 10px 25px -5px rgba(23, 37, 84, 0.4);
+}
+
+.nexora-platinum-bg-img {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 55%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.85;
+  mix-blend-mode: lighten;
+}
+
+.nexora-platinum-content {
+  position: relative;
+  z-index: 2;
+  max-width: 65%;
+}
+
+.nexora-platinum-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+
+.nexora-platinum-desc {
+  font-size: 0.78rem;
+  color: #93c5fd;
+  margin-bottom: 16px;
+}
+
+.nexora-platinum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nexora-platinum-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Trust Badges Footer */
+.nexora-trust-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid var(--nexora-card-border);
+  border-radius: 16px;
+  margin-top: 20px;
+}
+
+.nexora-trust-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.nexora-trust-icon {
+  color: #2563eb;
+}
+
+.nexora-trust-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.nexora-trust-sub {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+/* Switcher / Dropdown popup */
+.nexora-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  width: 280px;
+  z-index: 200;
+  padding: 8px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.nexora-dropdown-header {
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.nexora-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.nexora-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.nexora-dropdown-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE SYSTEM  (≤ 767px)
+   ========================================================================== */
+
+/* Utility: hide on mobile */
+@media (max-width: 767px) {
+  .nexora-hide-mobile { display: none !important; }
+}
+
+/* ── Hamburger button ── */
+.nexora-hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 300;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.nexora-hamburger-btn:hover { background: rgba(0,0,0,0.06); }
+
+/* Close button inside the mobile drawer */
+.nexora-mobile-close-btn {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: color 0.2s;
+}
+.nexora-mobile-close-btn:hover { color: #ffffff; }
+
+/* ── Backdrop ── */
+.nexora-mobile-backdrop {
+  display: none; /* hidden by default on all screen sizes */
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 199;
+}
+
+/* ── Mobile bottom nav: hidden by default on desktop ── */
+.nexora-mobile-bottom-nav {
+  display: none;
+}
+
+/* ── Mobile menu slot in header: hidden on desktop ── */
+.nexora-mobile-menu-slot {
+  display: none;
+}
+
+/* ── Desktop sidebar (always visible ≥768px) ── */
+.nexora-sidebar-desktop {
+  display: flex;
+}
+
+/* ── Mobile drawer (hidden by default) ── */
+.nexora-sidebar-mobile {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100dvh;
+  width: 280px;
+  z-index: 200;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+}
+.nexora-sidebar-mobile.open {
+  transform: translateX(0);
+  box-shadow: 8px 0 40px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 767px) {
+  /* Show hamburger + backdrop + mobile drawer */
+  .nexora-hamburger-btn        { display: flex; }
+  .nexora-mobile-backdrop      { display: block; }
+  .nexora-mobile-close-btn     { display: flex; }
+
+  /* Hide the desktop sidebar */
+  .nexora-sidebar-desktop { display: none; }
+
+  /* App root: no left padding for the sidebar */
+  .nexora-app-layout { flex-direction: column; }
+
+  /* ── Header ── */
+  .nexora-header {
+    padding: 12px 16px 12px 66px; /* left room for hamburger button */
+    gap: 10px;
+  }
+  .nexora-search-bar {
+    width: 100%;
+    max-width: none;
+    padding: 8px 14px;
+  }
+  .nexora-search-bar input { font-size: 0.85rem; }
+  .nexora-header-actions { gap: 10px; }
+  .nexora-user-profile { padding: 4px; }
+
+  /* ── Content container ── */
+  .nexora-content-container {
+    padding: 16px 14px 80px 14px; /* bottom pad for mobile nav bar */
+    gap: 16px;
+  }
+
+  /* ── Hero banner ── */
+  .nexora-hero-banner {
+    min-height: 160px;
+    padding: 20px 18px;
+    border-radius: 16px;
+  }
+  .nexora-hero-balance { font-size: 1.8rem; }
+  .nexora-hero-content { flex-direction: column; gap: 8px; }
+  .nexora-hero-right   { display: none; }
+
+  /* ── Quick actions: 3 columns on mobile ── */
+  .nexora-quick-actions-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .nexora-action-card  { padding: 14px 8px; gap: 8px; border-radius: 14px; }
+  .nexora-action-icon  { width: 38px; height: 38px; border-radius: 10px; }
+  .nexora-action-label { font-size: 0.75rem; }
+
+  /* ── Dashboard grid: single column ── */
+  .nexora-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  /* ── Cards ── */
+  .nexora-card { padding: 16px; border-radius: 16px; }
+
+  /* ── Tables: hide low-priority columns ── */
+  .nexora-table th:nth-child(3),
+  .nexora-table td:nth-child(3),
+  .nexora-table th:nth-child(4),
+  .nexora-table td:nth-child(4) { display: none; }
+
+  .nexora-table th,
+  .nexora-table td { padding: 10px 8px; font-size: 0.82rem; }
+  .nexora-tx-icon-box { width: 32px; height: 32px; }
+
+  /* ── Security card ── */
+  .nexora-security-card { flex-direction: column; align-items: flex-start; }
+
+  /* ── Spending / donut ── */
+  .nexora-donut-wrapper { flex-direction: column; align-items: center; gap: 16px; }
+  .nexora-donut-chart-box { width: 130px; height: 130px; }
+
+  /* ── Platinum promo ── */
+  .nexora-platinum-bg-img { display: none; }
+  .nexora-platinum-content { max-width: 100%; }
+
+  /* ── Trust bar ── */
+  .nexora-trust-bar { flex-wrap: wrap; gap: 12px; padding: 14px 12px; }
+  .nexora-trust-item { flex: 1 1 40%; }
+
+  /* ── Dropdown menus ── */
+  .nexora-dropdown-menu {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 80px !important;
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* ── Mobile sticky bottom nav bar ── */
+  .nexora-mobile-bottom-nav {
+    display: flex !important; /* override the default display:none */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0b1328;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    z-index: 150;
+    padding: 0 4px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Show the header slot so content doesn't hide under hamburger */
+  .nexora-mobile-menu-slot {
+    display: block;
+    width: 42px;
+    flex-shrink: 0;
+  }
+  .nexora-mobile-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 0.65rem;
+    font-weight: 600;
+    transition: color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nexora-mobile-bottom-nav-item.active { color: #38bdf8; }
+  .nexora-mobile-bottom-nav-item span   { line-height: 1; }
+}
+
+/* ── Tablet tweaks (768px – 1024px) ── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .nexora-sidebar { width: 210px; min-width: 210px; padding: 20px 12px; }
+  .nexora-content-container { padding: 20px 20px 48px; }
+  .nexora-dashboard-grid { grid-template-columns: 1fr; }
+  .nexora-quick-actions-row { grid-template-columns: repeat(4, 1fr); }
+  .nexora-hero-balance { font-size: 2rem; }
+  .nexora-search-bar   { width: 280px; }
+}
+
+/* ── Prevent body scroll when mobile drawer is open ── */
+body.nexora-drawer-open { overflow: hidden; }
+
