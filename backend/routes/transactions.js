@@ -26,11 +26,11 @@ router.get('/', authenticateToken, (req, res) => {
   const countParams = [req.user.id];
 
   if (rail === 'CREDIT') {
-    query += ' AND (t.credit_portion > 0 OR t.type = "CREDIT_REPAYMENT")';
-    countQuery += ' AND (t.credit_portion > 0 OR t.type = "CREDIT_REPAYMENT")';
+    query += " AND (t.credit_portion > 0 OR t.type = 'CREDIT_REPAYMENT')";
+    countQuery += " AND (t.credit_portion > 0 OR t.type = 'CREDIT_REPAYMENT')";
   } else if (rail === 'DEBIT') {
-    query += ' AND t.debit_portion > 0';
-    countQuery += ' AND t.debit_portion > 0';
+    query += ' AND (t.debit_portion > 0 OR t.type = \'DEPOSIT\')';
+    countQuery += ' AND (t.debit_portion > 0 OR t.type = \'DEPOSIT\')';
   }
 
   if (type) {

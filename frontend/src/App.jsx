@@ -327,12 +327,12 @@ export default function App() {
 
           {/* Fixed Deposits Tab */}
           {activeTab === 'fixed_deposits' && (
-            <FixedDepositsView onRefresh={handleRefresh} />
+            <FixedDepositsView accounts={accounts} onRefresh={handleRefresh} />
           )}
 
           {/* Loans Tab */}
           {activeTab === 'loans' && (
-            <LoansView onRefresh={handleRefresh} />
+            <LoansView accounts={accounts} onRefresh={handleRefresh} />
           )}
 
           {/* Statements Tab */}

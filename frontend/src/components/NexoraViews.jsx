@@ -237,17 +237,38 @@ export function AccountsView({ accounts = [], onOpenAction, onRefresh }) {
 }
 
 // ============================================================================
-// 2. MONEY TRANSFER VIEW (Feature 1 & 5: Transfers, Beneficiaries & Lookup)
+// 2. MONEY TRANSFER VIEW (Feature 1 & 5: Real Bank Inter-Bank Transfer, SBI Directory & Credit/Debit Rails)
 // ============================================================================
 export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, onOpenScanPay }) {
-  const [paymentMethod, setPaymentMethod] = useState('DEBIT'); // 'DEBIT' | 'CREDIT'
+  // Transfer Channel: 'INTER_BANK' (SBI / Indian Banks) or 'INTERNAL' (Nexora Account / UPI)
+  const [transferChannel, setTransferChannel] = useState('INTER_BANK');
+  // Transaction Rail: 'DEBIT' (Liquid Savings Balance) or 'CREDIT' (Revolving Credit Line)
+  const [paymentMethod, setPaymentMethod] = useState('DEBIT');
   const [fromAccountId, setFromAccountId] = useState(accounts[0]?.id || 1);
   const [activeCard, setActiveCard] = useState(cardData || null);
+
+  // Bank & Branch Directory State
+  const [banks, setBanks] = useState([]);
+  const [selectedBankCode, setSelectedBankCode] = useState('SBI');
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchCode, setSelectedBranchCode] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+
+  // Beneficiary details
+  const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [beneficiaryAccNumber, setBeneficiaryAccNumber] = useState('');
+  const [confirmAccNumber, setConfirmAccNumber] = useState('');
+  const [transferMode, setTransferMode] = useState('IMPS'); // 'IMPS' | 'NEFT' | 'RTGS'
+
+  // Internal / UPI transfer fields
   const [recipientAccountNumber, setRecipientAccountNumber] = useState('NEX-9821-4410');
-  const [recipientName, setRecipientName] = useState('');
+  const [internalRecipientName, setInternalRecipientName] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
+
+  // Transaction params
   const [amount, setAmount] = useState('5000');
-  const [description, setDescription] = useState('Money Transfer');
+  const [description, setDescription] = useState('Vendor & Services Settlement');
   const [submitting, setSubmitting] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -263,29 +284,88 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
     }
   }, [cardData]);
 
-  // Lookup recipient when account number changes
+  // Sync fromAccountId when accounts update
   useEffect(() => {
-    if (recipientAccountNumber.length >= 8) {
+    if (accounts.length > 0 && !fromAccountId) {
+      setFromAccountId(accounts[0].id);
+    }
+  }, [accounts]);
+
+  // Load supported Indian banks directory
+  useEffect(() => {
+    apiRequest('/accounts/banks')
+      .then(res => {
+        if (res.banks && res.banks.length > 0) {
+          setBanks(res.banks);
+          // Default to SBI if available
+          const hasSbi = res.banks.find(b => b.bank_code === 'SBI');
+          if (hasSbi) {
+            setSelectedBankCode('SBI');
+          } else {
+            setSelectedBankCode(res.banks[0].bank_code);
+          }
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching banks directory:', err);
+      });
+  }, []);
+
+  // Load branches whenever selected bank changes
+  useEffect(() => {
+    if (!selectedBankCode) return;
+    setLoadingBranches(true);
+    apiRequest(`/accounts/banks/${selectedBankCode}/branches`)
+      .then(res => {
+        if (res.branches && res.branches.length > 0) {
+          setBranches(res.branches);
+          setSelectedBranchCode(res.branches[0].branch_code);
+          setSelectedBranch(res.branches[0]);
+        } else {
+          setBranches([]);
+          setSelectedBranch(null);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching branches:', err);
+        setBranches([]);
+        setSelectedBranch(null);
+      })
+      .finally(() => setLoadingBranches(false));
+  }, [selectedBankCode]);
+
+  // Update selected branch object when branch code changes
+  const handleBranchChange = (code) => {
+    setSelectedBranchCode(code);
+    const br = branches.find(b => b.branch_code === code);
+    setSelectedBranch(br || null);
+  };
+
+  // Lookup internal recipient when account number changes
+  useEffect(() => {
+    if (transferChannel === 'INTERNAL' && recipientAccountNumber.length >= 8) {
       setLookupLoading(true);
       apiRequest(`/accounts/lookup/${recipientAccountNumber}`)
         .then(res => {
           if (res.recipient) {
-            setRecipientName(res.recipient.holder_name);
+            setInternalRecipientName(res.recipient.holder_name);
             setErrorMsg('');
           }
         })
         .catch(() => {
-          // If not found in live DB, provide friendly fallback for demo accounts
-          if (recipientAccountNumber.includes('4582')) setRecipientName('Alex Mathew');
-          else if (recipientAccountNumber.includes('7733')) setRecipientName('Sarah Connor');
-          else if (recipientAccountNumber.includes('8841')) setRecipientName('John Davis');
-          else if (recipientAccountNumber.includes('9912')) setRecipientName('Leo Davis');
-          else if (recipientAccountNumber.includes('9821')) setRecipientName('Rahul S');
-          else setRecipientName('Verified Nexora Customer');
+          if (recipientAccountNumber.includes('4582')) setInternalRecipientName('Alex Mathew');
+          else if (recipientAccountNumber.includes('7733')) setInternalRecipientName('Sarah Connor');
+          else if (recipientAccountNumber.includes('8841')) setInternalRecipientName('John Davis');
+          else if (recipientAccountNumber.includes('9912')) setInternalRecipientName('Leo Davis');
+          else if (recipientAccountNumber.includes('9821')) setInternalRecipientName('Rahul S');
+          else setInternalRecipientName('Verified Nexora Customer');
         })
         .finally(() => setLookupLoading(false));
     }
-  }, [recipientAccountNumber]);
+  }, [recipientAccountNumber, transferChannel]);
+
+  const selectedBank = banks.find(b => b.bank_code === selectedBankCode);
+  const selectedFromAcc = accounts.find(a => a.id === parseInt(fromAccountId)) || accounts[0];
 
   const handleTransfer = async (e) => {
     e.preventDefault();
@@ -294,25 +374,52 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
     setSuccessInfo(null);
 
     try {
-      const res = await apiRequest('/accounts/transfer', 'POST', {
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        throw new Error('Please enter a valid transfer amount.');
+      }
+
+      if (transferChannel === 'INTER_BANK') {
+        if (!beneficiaryAccNumber || beneficiaryAccNumber.trim().length < 6) {
+          throw new Error('Please enter a valid beneficiary account number.');
+        }
+        if (confirmAccNumber && beneficiaryAccNumber.trim() !== confirmAccNumber.trim()) {
+          throw new Error('Beneficiary account numbers do not match. Please verify.');
+        }
+        if (!selectedBranch) {
+          throw new Error('Please select a valid bank branch.');
+        }
+      }
+
+      const payload = {
         fromAccountId: parseInt(fromAccountId) || accounts[0]?.id || 1,
-        recipientAccountNumber,
-        amount: parseFloat(amount),
-        description,
-        paymentMethod // 'DEBIT' | 'CREDIT'
-      });
+        recipientAccountNumber: transferChannel === 'INTER_BANK' ? beneficiaryAccNumber.trim() : recipientAccountNumber.trim(),
+        amount: numAmount,
+        description: `${description || 'Transfer'} (${transferMode})`,
+        paymentMethod, // 'DEBIT' | 'CREDIT'
+        targetBank: transferChannel === 'INTER_BANK' ? selectedBank?.bank_name : undefined,
+        targetBranch: transferChannel === 'INTER_BANK' ? selectedBranch?.branch_name : undefined,
+        targetIfsc: transferChannel === 'INTER_BANK' ? selectedBranch?.ifsc_code : undefined,
+        recipientName: transferChannel === 'INTER_BANK' ? (beneficiaryName || `${selectedBank?.short_name || 'Bank'} Beneficiary`) : internalRecipientName
+      };
+
+      const res = await apiRequest('/accounts/transfer', 'POST', payload);
 
       if (res.status === 'PENDING_APPROVAL') {
         setSuccessInfo({
           type: 'PENDING_APPROVAL',
-          title: 'Submitted for Parental Approval',
-          message: `Transfer of ₹${parseFloat(amount).toLocaleString('en-IN')} via ${paymentMethod === 'CREDIT' ? 'Credit Line' : 'Debit'} is held pending authorization from your parent/guardian. Request Code: ${res.requestCode}`
+          title: 'Held for Parental Guardian Approval',
+          message: `Transfer of ₹${numAmount.toLocaleString('en-IN')} via ${paymentMethod === 'CREDIT' ? 'Credit Line' : 'Debit Account'} is held pending authorization from your parent/guardian. Request Code: ${res.requestCode}`
         });
       } else {
+        const destDesc = transferChannel === 'INTER_BANK'
+          ? `${beneficiaryName || 'Beneficiary'} at ${selectedBank?.short_name || 'Bank'} (${selectedBranch?.branch_name}, IFSC: ${selectedBranch?.ifsc_code})`
+          : (internalRecipientName || recipientAccountNumber);
+
         setSuccessInfo({
           type: 'SUCCESS',
-          title: 'Transfer Completed Successfully',
-          message: `Transferred ₹${parseFloat(amount).toLocaleString('en-IN')} via ${paymentMethod === 'CREDIT' ? 'Nexora Credit Line' : 'Debit Account'} to ${recipientName || recipientAccountNumber}. Ref: ${res.referenceId}`
+          title: 'Inter-Bank Transfer Initiated Successfully',
+          message: `Transferred ₹${numAmount.toLocaleString('en-IN')} via ${paymentMethod === 'CREDIT' ? 'Nexora Smart Credit Line' : 'Debit Account'} to ${destDesc}. Ref: ${res.referenceId}`
         });
       }
 
@@ -325,13 +432,33 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
     }
   };
 
+  const handleSelectPresetBeneficiary = (preset) => {
+    setTransferChannel('INTER_BANK');
+    setSelectedBankCode(preset.bankCode);
+    setBeneficiaryName(preset.name);
+    setBeneficiaryAccNumber(preset.acc);
+    setConfirmAccNumber(preset.acc);
+    setDescription(preset.purpose || 'Vendor Settlement');
+  };
+
   return (
     <div className="nexora-content-container">
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a' }}>Money Transfer & Instant Pay</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge badge-indigo" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Landmark size={12} /> National Clearing Network
+            </span>
+            <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <ShieldCheck size={12} /> RBI & NPCI Compliant
+            </span>
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '6px' }}>
+            Real-Time Bank Transfers & Clearing
+          </h2>
           <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-            Real-time bank transfers with automated Safe Limit protection and zero transaction fees.
+            Direct inter-bank transfers to State Bank of India (SBI) and other major Indian institutions with separate Credit & Debit options.
           </p>
         </div>
         {onOpenScanPay && (
@@ -357,13 +484,161 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px', marginTop: '12px' }}>
-        {/* Transfer Form Card */}
+      {/* Main Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px', marginTop: '12px' }}>
+        {/* Left Form Column */}
         <div className="nexora-card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>
-            Direct Account Transfer
-          </h3>
+          {/* Transfer Channel Selector */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 1fr',
+            gap: '8px',
+            background: '#f1f5f9',
+            padding: '4px',
+            borderRadius: '12px',
+            marginBottom: '20px'
+          }}>
+            <button
+              type="button"
+              onClick={() => setTransferChannel('INTER_BANK')}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: transferChannel === 'INTER_BANK' ? '#ffffff' : 'transparent',
+                color: transferChannel === 'INTER_BANK' ? '#1d4ed8' : '#64748b',
+                fontWeight: transferChannel === 'INTER_BANK' ? 700 : 600,
+                boxShadow: transferChannel === 'INTER_BANK' ? '0 2px 8px rgba(29, 78, 216, 0.15)' : 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontSize: '0.88rem'
+              }}
+              id="transfer-mode-interbank-btn"
+            >
+              <Landmark size={16} />
+              <span>Inter-Bank (SBI / Other Banks)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransferChannel('INTERNAL')}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: transferChannel === 'INTERNAL' ? '#ffffff' : 'transparent',
+                color: transferChannel === 'INTERNAL' ? '#0f172a' : '#64748b',
+                fontWeight: transferChannel === 'INTERNAL' ? 700 : 600,
+                boxShadow: transferChannel === 'INTERNAL' ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                fontSize: '0.88rem'
+              }}
+              id="transfer-mode-internal-btn"
+            >
+              <Send size={16} />
+              <span>Nexora Internal / UPI</span>
+            </button>
+          </div>
 
+          {/* Separate Options for Credit and Debit Transactions */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+              Choose Transaction Rail (Debit Account vs Credit Line)
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* Option 1: Debit Rail */}
+              <div
+                onClick={() => setPaymentMethod('DEBIT')}
+                style={{
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: `2px solid ${paymentMethod === 'DEBIT' ? '#2563eb' : '#e2e8f0'}`,
+                  background: paymentMethod === 'DEBIT' ? '#eff6ff' : '#f8fafc',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+                id="rail-select-debit"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '8px',
+                      background: paymentMethod === 'DEBIT' ? '#2563eb' : '#cbd5e1',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Wallet size={16} />
+                    </div>
+                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: paymentMethod === 'DEBIT' ? '#1e40af' : '#334155' }}>
+                      Debit Transaction
+                    </span>
+                  </div>
+                  {paymentMethod === 'DEBIT' && <CheckCircle size={16} color="#2563eb" />}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  Debited instantly from liquid savings balance. Protected by Smart Safe Limit.
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>
+                  Balance: {formatINR(selectedFromAcc?.balance || 102450)}
+                </div>
+              </div>
+
+              {/* Option 2: Credit Rail */}
+              <div
+                onClick={() => setPaymentMethod('CREDIT')}
+                style={{
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: `2px solid ${paymentMethod === 'CREDIT' ? '#7c3aed' : '#e2e8f0'}`,
+                  background: paymentMethod === 'CREDIT' ? '#f5f3ff' : '#f8fafc',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+                id="rail-select-credit"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '8px',
+                      background: paymentMethod === 'CREDIT' ? '#7c3aed' : '#cbd5e1',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <CreditCard size={16} />
+                    </div>
+                    <span style={{ fontWeight: 800, fontSize: '0.92rem', color: paymentMethod === 'CREDIT' ? '#6b21a8' : '#334155' }}>
+                      Credit Transaction
+                    </span>
+                  </div>
+                  {paymentMethod === 'CREDIT' && <CheckCircle size={16} color="#7c3aed" />}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  Draws from Nexora Smart Revolving Credit line. 0% interest promo active.
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '0.82rem', fontWeight: 700, color: '#6b21a8' }}>
+                  Available Credit: {formatINR(activeCard?.available_credit ?? 150000)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feedback messages */}
           {successInfo && (
             <div style={{
               background: successInfo.type === 'SUCCESS' ? '#ecfdf5' : '#fffbeb',
@@ -376,7 +651,7 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
               <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={18} /> {successInfo.title}
               </div>
-              <div style={{ fontSize: '0.82rem' }}>{successInfo.message}</div>
+              <div style={{ fontSize: '0.84rem' }}>{successInfo.message}</div>
             </div>
           )}
 
@@ -394,69 +669,10 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
             </div>
           )}
 
+          {/* Form */}
           <form onSubmit={handleTransfer}>
-            {/* Funding Source Toggle: Debit vs Credit */}
-            <div className="form-group" style={{ marginBottom: '18px' }}>
-              <label className="form-label" style={{ color: '#475569', marginBottom: '8px', display: 'block' }}>
-                Choose Transfer Source (Debit / Credit)
-              </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '8px',
-                background: '#f1f5f9',
-                padding: '4px',
-                borderRadius: '12px'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('DEBIT')}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: paymentMethod === 'DEBIT' ? '#ffffff' : 'transparent',
-                    color: paymentMethod === 'DEBIT' ? '#2563eb' : '#64748b',
-                    fontWeight: paymentMethod === 'DEBIT' ? 700 : 600,
-                    boxShadow: paymentMethod === 'DEBIT' ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <Wallet size={16} />
-                  <span>Debit Account</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('CREDIT')}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: paymentMethod === 'CREDIT' ? '#ffffff' : 'transparent',
-                    color: paymentMethod === 'CREDIT' ? '#7c3aed' : '#64748b',
-                    fontWeight: paymentMethod === 'CREDIT' ? 700 : 600,
-                    boxShadow: paymentMethod === 'CREDIT' ? '0 2px 8px rgba(124, 58, 237, 0.15)' : 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <CreditCard size={16} />
-                  <span>Credit Line</span>
-                </button>
-              </div>
-            </div>
-
-            {/* If DEBIT: Select from Accounts */}
-            {paymentMethod === 'DEBIT' ? (
+            {/* If DEBIT: Source Account dropdown */}
+            {paymentMethod === 'DEBIT' && (
               <div className="form-group">
                 <label className="form-label" style={{ color: '#475569' }}>From Debit Account</label>
                 <select
@@ -476,75 +692,210 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
                   )}
                 </select>
               </div>
-            ) : (
-              /* If CREDIT: Show Active Credit Card Line */
-              <div className="form-group">
-                <label className="form-label" style={{ color: '#475569' }}>From Nexora Smart Credit Line</label>
-                <div style={{
-                  background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-                  border: '1.5px solid #ddd6fe',
-                  borderRadius: '12px',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '10px',
-                      background: '#7c3aed',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <CreditCard size={20} />
-                    </div>
+            )}
+
+            {/* INTER-BANK MODE: Bank & Branch Selectors */}
+            {transferChannel === 'INTER_BANK' ? (
+              <>
+                {/* 1. Bank Selector */}
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#475569' }}>
+                    Select Beneficiary Bank
+                  </label>
+                  <select
+                    className="input-field"
+                    style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0', fontWeight: 600 }}
+                    value={selectedBankCode}
+                    onChange={e => setSelectedBankCode(e.target.value)}
+                    id="bank-selector-dropdown"
+                  >
+                    {banks.map(bank => (
+                      <option key={bank.bank_code} value={bank.bank_code}>
+                        {bank.bank_name} ({bank.short_name}) — {bank.category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Branch Selector */}
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Select Bank Branch</span>
+                    {loadingBranches && <span style={{ fontSize: '0.78rem', color: '#2563eb' }}>Loading branches...</span>}
+                  </label>
+                  <select
+                    className="input-field"
+                    style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0' }}
+                    value={selectedBranchCode}
+                    onChange={e => handleBranchChange(e.target.value)}
+                    id="branch-selector-dropdown"
+                    disabled={branches.length === 0}
+                  >
+                    {branches.map(branch => (
+                      <option key={branch.branch_code} value={branch.branch_code}>
+                        {branch.branch_name} — {branch.city}, {branch.state} (IFSC: {branch.ifsc_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Verified Branch Details Card */}
+                {selectedBranch && (
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1.5px solid #bbf7d0',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#1e1b4b' }}>
-                        Nexora Platinum Hybrid Credit Card
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Building2 size={16} color="#16a34a" />
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#166534' }}>
+                          {selectedBranch.branch_name} ({selectedBranch.city}, {selectedBranch.state})
+                        </span>
                       </div>
-                      <div style={{ fontSize: '0.76rem', color: '#6d28d9' }}>
-                        Card: •••• {activeCard?.card_number?.slice(-4) || '4152'} • 0% APR Promo Active
+                      <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '3px' }}>
+                        {selectedBranch.address}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{
+                        background: '#166534',
+                        color: '#ffffff',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        fontFamily: 'var(--font-mono)'
+                      }}>
+                        {selectedBranch.ifsc_code}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#15803d', marginTop: '2px' }}>
+                        Verified IFSC
                       </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.68rem', color: '#6d28d9', fontWeight: 600, textTransform: 'uppercase' }}>
-                      Available Credit
+                )}
+
+                {/* Beneficiary Name */}
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#475569' }}>
+                    Beneficiary Account Holder Name
+                  </label>
+                  <input
+                    className="input-field"
+                    style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0' }}
+                    value={beneficiaryName}
+                    onChange={e => setBeneficiaryName(e.target.value)}
+                    placeholder="e.g. Rahul Sharma or State Bank Corporate"
+                    required
+                  />
+                </div>
+
+                {/* Beneficiary Account Number & Confirm Account Number */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ color: '#475569' }}>
+                      Beneficiary Account Number
+                    </label>
+                    <input
+                      className="input-field"
+                      style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0', fontFamily: 'var(--font-mono)' }}
+                      value={beneficiaryAccNumber}
+                      onChange={e => setBeneficiaryAccNumber(e.target.value)}
+                      placeholder="e.g. 30910048122"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label className="form-label" style={{ color: '#475569' }}>Confirm Account Number</label>
+                      {confirmAccNumber && (
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: beneficiaryAccNumber.trim() === confirmAccNumber.trim() ? '#16a34a' : '#dc2626'
+                        }}>
+                          {beneficiaryAccNumber.trim() === confirmAccNumber.trim() ? '✓ Matches' : '✗ Mismatch'}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ fontSize: '1.02rem', fontWeight: 800, color: '#5b21b6' }}>
-                      {formatINR(activeCard?.available_credit ?? 150000)}
-                    </div>
+                    <input
+                      className="input-field"
+                      style={{
+                        background: '#f8fafc',
+                        color: '#0f172a',
+                        borderColor: confirmAccNumber && beneficiaryAccNumber.trim() !== confirmAccNumber.trim() ? '#f87171' : '#e2e8f0',
+                        fontFamily: 'var(--font-mono)'
+                      }}
+                      value={confirmAccNumber}
+                      onChange={e => setConfirmAccNumber(e.target.value)}
+                      placeholder="Re-enter account number"
+                      required
+                    />
                   </div>
                 </div>
+
+                {/* Transfer Mode: IMPS vs NEFT vs RTGS */}
+                <div className="form-group">
+                  <label className="form-label" style={{ color: '#475569' }}>Transfer Settlement Mode</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {[
+                      { id: 'IMPS', title: 'IMPS (24x7)', desc: 'Instant Settlement' },
+                      { id: 'NEFT', title: 'NEFT', desc: 'RBI Batch (Zero Fee)' },
+                      { id: 'RTGS', title: 'RTGS', desc: 'Real-Time (₹2L+)' }
+                    ].map(mode => (
+                      <div
+                        key={mode.id}
+                        onClick={() => setTransferMode(mode.id)}
+                        style={{
+                          padding: '10px',
+                          borderRadius: '10px',
+                          border: `1.5px solid ${transferMode === mode.id ? '#2563eb' : '#e2e8f0'}`,
+                          background: transferMode === mode.id ? '#eff6ff' : '#f8fafc',
+                          textAlign: 'center',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: '0.84rem', color: transferMode === mode.id ? '#1d4ed8' : '#0f172a' }}>
+                          {mode.title}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
+                          {mode.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* INTERNAL NEXORA TRANSFER MODE */
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label className="form-label" style={{ color: '#475569' }}>Recipient Account / UPI Number</label>
+                  {internalRecipientName && (
+                    <span style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600 }}>
+                      ✓ Beneficiary: {internalRecipientName}
+                    </span>
+                  )}
+                </div>
+                <input
+                  className="input-field"
+                  style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0', fontFamily: 'var(--font-mono)' }}
+                  value={recipientAccountNumber}
+                  onChange={e => setRecipientAccountNumber(e.target.value)}
+                  placeholder="e.g. NEX-9821-4410 or ABMS-1004-7733"
+                  required
+                />
               </div>
             )}
 
-            {/* Recipient Account Number */}
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <label className="form-label" style={{ color: '#475569' }}>Recipient Account / UPI Number</label>
-                {recipientName && (
-                  <span style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 600 }}>
-                    ✓ Beneficiary: {recipientName}
-                  </span>
-                )}
-              </div>
-              <input
-                className="input-field"
-                style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0', fontFamily: 'var(--font-mono)' }}
-                value={recipientAccountNumber}
-                onChange={e => setRecipientAccountNumber(e.target.value)}
-                placeholder="e.g. NEX-9821-4410"
-                required
-              />
-            </div>
-
-            {/* Amount */}
+            {/* Transfer Amount */}
             <div className="form-group">
               <label className="form-label" style={{ color: '#475569' }}>Transfer Amount (₹)</label>
               <input
@@ -557,9 +908,31 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
                 required
                 min="1"
               />
+              {/* Quick Amount Chips */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                {['1000', '5000', '10000', '25000', '50000'].map(chip => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setAmount(chip)}
+                    style={{
+                      background: '#f1f5f9',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '4px 10px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + ₹{parseInt(chip).toLocaleString('en-IN')}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Note */}
+            {/* Transfer Note */}
             <div className="form-group">
               <label className="form-label" style={{ color: '#475569' }}>Transfer Description / Reference Note</label>
               <input
@@ -567,62 +940,96 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
                 style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0' }}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="e.g. Rent, Freelance Payment, Gift"
+                placeholder="e.g. Vendor Clearing, Loan EMI, Family Maintenance"
               />
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ width: '100%', padding: '12px', marginTop: '10px' }}
+              style={{
+                width: '100%',
+                padding: '13px',
+                marginTop: '10px',
+                fontSize: '0.98rem',
+                fontWeight: 700,
+                background: paymentMethod === 'CREDIT' ? 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)' : undefined
+              }}
               disabled={submitting}
               id="submit-transfer-btn"
             >
-              <Send size={16} /> {submitting ? 'Validating & Processing...' : 'Send Money Now'}
+              <Send size={16} />{' '}
+              {submitting
+                ? 'Validating & Clearing Transfer...'
+                : `Transfer via ${paymentMethod === 'CREDIT' ? 'Credit Line' : 'Debit Account'} Now`}
             </button>
           </form>
         </div>
 
-        {/* Frequent Beneficiaries */}
-        <div className="nexora-card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>
-            Saved Beneficiaries
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[
-              { name: 'Rahul S', acc: 'NEX-9821-4410', bank: 'Nexora Bank' },
-              { name: 'Acme Technologies', acc: 'NEX-3312-8800', bank: 'Nexora Corporate' },
-              { name: 'Kerala Electricity Board', acc: 'KSEB-BILL-104', bank: 'Utility Services' },
-              { name: 'Sarah Connor', acc: 'ABMS-1004-7733', bank: 'Nexora Partner' },
-              { name: 'Leo Davis (Minor)', acc: 'ABMS-1003-9912', bank: 'Nexora Student' }
-            ].map((b, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  setRecipientAccountNumber(b.acc);
-                  setRecipientName(b.name);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: '1px solid #f1f5f9',
-                  background: '#f8fafc',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>{b.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>
-                    {b.acc} • {b.bank}
+        {/* Right Info Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Authentic Beneficiary Quick Select */}
+          <div className="nexora-card">
+            <div className="nexora-card-header" style={{ marginBottom: '14px' }}>
+              <span className="nexora-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Landmark size={18} color="#2563eb" /> Verified Bank Beneficiaries
+              </span>
+              <span className="badge badge-success">Instant IMPS</span>
+            </div>
+            <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '14px' }}>
+              Select a verified Indian bank account to pre-fill genuine IFSC, branch, and clearing details.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                { name: 'State Bank Corporate Clearing', bank: 'State Bank of India', bankCode: 'SBI', acc: 'SBIN-3091-8842', ifsc: 'SBIN0000300', branch: 'Mumbai Main' },
+                { name: 'SBI National Capital Treasury', bank: 'State Bank of India', bankCode: 'SBI', acc: 'SBIN-1100-6910', ifsc: 'SBIN0000691', branch: 'New Delhi Main' },
+                { name: 'HDFC Vendor Settlement', bank: 'HDFC Bank', bankCode: 'HDFC', acc: 'HDFC-5020-1194', ifsc: 'HDFC0000060', branch: 'Fort Mumbai' },
+                { name: 'ICICI Merchant Clearing', bank: 'ICICI Bank', bankCode: 'ICICI', acc: 'ICIC-0004-7721', ifsc: 'ICIC0000007', branch: 'Nariman Point' },
+                { name: 'Axis Corporate Services', bank: 'Axis Bank', bankCode: 'AXIS', acc: 'UTIB-0910-3341', ifsc: 'UTIB0000005', branch: 'Corporate Mumbai' },
+                { name: 'Sarah Connor (Nexora)', bank: 'Nexora Bank', bankCode: 'SBI', acc: 'ABMS-1004-7733', ifsc: 'SBIN0000300', branch: 'Internal' }
+              ].map((b, i) => (
+                <div
+                  key={i}
+                  onClick={() => handleSelectPresetBeneficiary(b)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '11px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    background: '#f8fafc',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.86rem' }}>{b.name}</div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+                      {b.acc} • {b.bank} ({b.ifsc})
+                    </div>
                   </div>
+                  <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: '0.72rem', padding: '4px 8px' }}>
+                    Select
+                  </button>
                 </div>
-                <button type="button" className="btn btn-sm btn-secondary">Select</button>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          {/* National Clearing Protocols & Protection Notice */}
+          <div className="nexora-card" style={{ background: '#f8fafc' }}>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={18} color="#059669" /> RBI Safe Settlement Guarantee
+            </h4>
+            <ul style={{ paddingLeft: '18px', margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: '1.6' }}>
+              <li><strong>IMPS 24x7:</strong> Real-time inter-bank funds transfer processed via NPCI network.</li>
+              <li><strong>Smart Safe Limit:</strong> Transfers exceeding your AI-optimized threshold trigger real-time protective confirmation.</li>
+              <li><strong>Split / Credit Option:</strong> Use your 0% promotional revolving line without dipping into liquid savings.</li>
+              <li><strong>Zero Transfer Surcharge:</strong> Free transfers across all public and private Indian partner banks.</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -633,11 +1040,18 @@ export function MoneyTransferView({ accounts = [], cardData, onTransferSuccess, 
 // ============================================================================
 // 3. FIXED DEPOSITS VIEW (Feature 1 & Term Savings)
 // ============================================================================
-export function FixedDepositsView({ onRefresh }) {
+export function FixedDepositsView({ accounts = [], onRefresh }) {
+  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || 1);
   const [depositAmount, setDepositAmount] = useState('50000');
   const [tenureYears, setTenureYears] = useState('3');
   const [bookingSuccess, setBookingSuccess] = useState('');
   const rate = 7.2;
+
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts]);
 
   const interestEarned = Math.round(depositAmount * (rate / 100) * tenureYears);
   const maturityAmount = parseFloat(depositAmount || 0) + interestEarned;
@@ -645,7 +1059,7 @@ export function FixedDepositsView({ onRefresh }) {
   const handleBookFd = async () => {
     try {
       await apiRequest('/accounts/deposit', 'POST', {
-        accountId: 1,
+        accountId: parseInt(selectedAccountId) || accounts[0]?.id || 1,
         amount: parseFloat(depositAmount),
         description: `New Fixed Deposit booked for ${tenureYears} years at 7.2% p.a.`
       });
@@ -711,6 +1125,24 @@ export function FixedDepositsView({ onRefresh }) {
             FD Returns Calculator
           </h3>
 
+          {accounts && accounts.length > 0 && (
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#475569' }}>Debit From Account</label>
+              <select
+                className="input-field"
+                style={{ background: '#f8fafc', color: '#0f172a', borderColor: '#e2e8f0' }}
+                value={selectedAccountId}
+                onChange={e => setSelectedAccountId(e.target.value)}
+              >
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.account_type} ({acc.account_number}) — Balance: {formatINR(acc.balance)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" style={{ color: '#475569' }}>Principal Amount (₹)</label>
             <input
@@ -760,12 +1192,19 @@ export function FixedDepositsView({ onRefresh }) {
 // ============================================================================
 // 4. LOANS & CREDIT VIEW (Feature 8: Credit Management & Loans)
 // ============================================================================
-export function LoansView({ onRefresh }) {
+export function LoansView({ accounts = [], onRefresh }) {
+  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || 1);
   const [loanAmount, setLoanAmount] = useState('200000');
   const [loanTenure, setLoanTenure] = useState('24'); // months
   const [loanRate, setLoanRate] = useState('9.99');
   const [disbursing, setDisbursing] = useState(false);
   const [disburseSuccess, setDisburseSuccess] = useState('');
+
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts]);
 
   // Calculate monthly EMI = P * r * (1+r)^n / ((1+r)^n - 1)
   const P = parseFloat(loanAmount) || 0;
@@ -779,11 +1218,11 @@ export function LoansView({ onRefresh }) {
     setDisbursing(true);
     try {
       await apiRequest('/accounts/deposit', 'POST', {
-        accountId: 1,
+        accountId: parseInt(selectedAccountId) || accounts[0]?.id || 1,
         amount: parseFloat(loanAmount),
         description: `Pre-Approved Instant Personal Loan disbursed`
       });
-      setDisburseSuccess(`Instant Personal Loan of ₹${parseFloat(loanAmount).toLocaleString('en-IN')} disbursed into your primary savings account!`);
+      setDisburseSuccess(`Instant Personal Loan of ₹${parseFloat(loanAmount).toLocaleString('en-IN')} disbursed into your selected account!`);
       onRefresh && onRefresh();
     } catch (err) {
       alert('Disbursement: ' + err.message);

@@ -11,7 +11,9 @@ import {
   Building2,
   Sparkles,
   Smartphone,
-  FileText
+  FileText,
+  Landmark,
+  Wallet
 } from 'lucide-react';
 import { apiRequest } from '../api';
 
@@ -32,6 +34,16 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Transfer options: Inter-Bank vs Internal & Debit vs Credit
+  const [transferType, setTransferType] = useState('INTER_BANK'); // 'INTER_BANK' | 'INTERNAL'
+  const [paymentRail, setPaymentRail] = useState('DEBIT'); // 'DEBIT' | 'CREDIT'
+  const [banks, setBanks] = useState([]);
+  const [selectedBankCode, setSelectedBankCode] = useState('SBI');
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchCode, setSelectedBranchCode] = useState('');
+  const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [interBankAcc, setInterBankAcc] = useState('');
+
   useEffect(() => {
     if (mode) setActiveTab(mode);
     if (accounts && accounts.length > 0) {
@@ -42,11 +54,48 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
     setError('');
     setSuccessMsg('');
     setRecipientInfo(null);
+    setBeneficiaryName('');
+    setInterBankAcc('');
   }, [isOpen, mode, accounts]);
+
+  // Load banks when transfer tab is active
+  useEffect(() => {
+    if (isOpen && activeTab === 'transfer' && banks.length === 0) {
+      apiRequest('/accounts/banks')
+        .then(res => {
+          if (res.banks && res.banks.length > 0) {
+            setBanks(res.banks);
+            const hasSbi = res.banks.find(b => b.bank_code === 'SBI');
+            setSelectedBankCode(hasSbi ? 'SBI' : res.banks[0].bank_code);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, activeTab, banks.length]);
+
+  // Load branches when selected bank changes
+  useEffect(() => {
+    if (isOpen && activeTab === 'transfer' && selectedBankCode) {
+      apiRequest(`/accounts/banks/${selectedBankCode}/branches`)
+        .then(res => {
+          if (res.branches && res.branches.length > 0) {
+            setBranches(res.branches);
+            setSelectedBranchCode(res.branches[0].branch_code);
+          } else {
+            setBranches([]);
+            setSelectedBranchCode('');
+          }
+        })
+        .catch(() => {
+          setBranches([]);
+          setSelectedBranchCode('');
+        });
+    }
+  }, [isOpen, activeTab, selectedBankCode]);
 
   // Lookup recipient account on typing
   useEffect(() => {
-    if (activeTab !== 'transfer' || recipientAccount.length < 8) {
+    if (activeTab !== 'transfer' || transferType !== 'INTERNAL' || recipientAccount.length < 8) {
       setRecipientInfo(null);
       return;
     }
@@ -64,7 +113,7 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [recipientAccount, activeTab]);
+  }, [recipientAccount, activeTab, transferType]);
 
   if (!isOpen) return null;
 
@@ -95,11 +144,33 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
         });
         setSuccessMsg(res.message);
       } else if (activeTab === 'transfer') {
+        const isInterBank = transferType === 'INTER_BANK';
+        const selBank = banks.find(b => b.bank_code === selectedBankCode);
+        const selBranch = branches.find(b => b.branch_code === selectedBranchCode);
+
+        if (isInterBank) {
+          if (!interBankAcc || interBankAcc.trim().length < 6) {
+            throw new Error('Please enter a valid beneficiary account number.');
+          }
+          if (!selBranch) {
+            throw new Error('Please select a valid bank branch.');
+          }
+        } else {
+          if (!recipientAccount || recipientAccount.trim().length < 4) {
+            throw new Error('Please enter recipient account number.');
+          }
+        }
+
         const res = await apiRequest('/accounts/transfer', 'POST', {
           fromAccountId: selectedAccountId || accounts[0]?.id || 1,
-          recipientAccountNumber: recipientAccount,
+          recipientAccountNumber: isInterBank ? interBankAcc.trim() : recipientAccount.trim(),
           amount: numAmount,
-          description
+          description: description || (isInterBank ? `Inter-Bank (${selBank?.short_name || 'Bank'})` : 'Account Transfer'),
+          paymentMethod: paymentRail, // 'DEBIT' | 'CREDIT'
+          targetBank: isInterBank ? selBank?.bank_name : undefined,
+          targetBranch: isInterBank ? selBranch?.branch_name : undefined,
+          targetIfsc: isInterBank ? selBranch?.ifsc_code : undefined,
+          recipientName: isInterBank ? (beneficiaryName || `${selBank?.short_name || 'Bank'} Beneficiary`) : (recipientInfo?.name || undefined)
         });
         setSuccessMsg(res.message);
       } else if (activeTab === 'repay') {
@@ -260,8 +331,8 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
             </div>
           ) : (
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Account Selector */}
-              {accounts && accounts.length > 0 && activeTab !== 'repay' && (
+              {/* Account Selector for Non-Transfer or Non-Credit operations */}
+              {accounts && accounts.length > 0 && activeTab !== 'repay' && activeTab !== 'transfer' && (
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
                     Select Bank Account
@@ -291,93 +362,307 @@ export default function QuickActionsModal({ isOpen, mode, onClose, accounts = []
                 </div>
               )}
 
-              {/* Outstanding credit banner for repay tab */}
-              {activeTab === 'repay' && (
-                <div style={{
-                  padding: '14px 16px',
-                  background: '#f5f3ff',
-                  border: '1px solid #ddd6fe',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
+              {/* Transfer Rail & Type Selectors */}
+              {activeTab === 'transfer' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Rail Selector: Debit vs Credit */}
                   <div>
-                    <div style={{ fontSize: '0.78rem', color: '#6b21a8', fontWeight: 600, textTransform: 'uppercase' }}>
-                      Revolving Credit Utilized
-                    </div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#581c87', marginTop: '2px' }}>
-                      {formatINR(outstandingCredit)}
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                      Transfer Funding Source
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentRail('DEBIT')}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: '10px',
+                          border: `1.5px solid ${paymentRail === 'DEBIT' ? '#2563eb' : '#cbd5e1'}`,
+                          background: paymentRail === 'DEBIT' ? '#eff6ff' : '#ffffff',
+                          color: paymentRail === 'DEBIT' ? '#1d4ed8' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Wallet size={15} /> Debit Account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentRail('CREDIT')}
+                        style={{
+                          padding: '9px 12px',
+                          borderRadius: '10px',
+                          border: `1.5px solid ${paymentRail === 'CREDIT' ? '#7c3aed' : '#cbd5e1'}`,
+                          background: paymentRail === 'CREDIT' ? '#f5f3ff' : '#ffffff',
+                          color: paymentRail === 'CREDIT' ? '#6b21a8' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <CreditCard size={15} /> Credit Line
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAmount(outstandingCredit.toString())}
-                    style={{
-                      background: '#7c3aed',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Pay Full
-                  </button>
-                </div>
-              )}
 
-              {/* Transfer Recipient Input */}
-              {activeTab === 'transfer' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                    Recipient Account Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ABMS-1004-7733 or NEX-4582-8821"
-                    value={recipientAccount}
-                    onChange={(e) => setRecipientAccount(e.target.value.toUpperCase())}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '11px 14px',
-                      background: '#f8fafc',
-                      border: '1.5px solid #cbd5e1',
+                  {/* If Debit: Account picker */}
+                  {paymentRail === 'DEBIT' ? (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                        From Debit Account
+                      </label>
+                      <select
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '9px 12px',
+                          background: '#f8fafc',
+                          border: '1.5px solid #cbd5e1',
+                          borderRadius: '10px',
+                          color: '#0f172a',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          outline: 'none'
+                        }}
+                      >
+                        {accounts.map((acc) => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.account_number} ({acc.account_type}) — Balance: {formatINR(acc.balance)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    /* If Credit: Active card summary */
+                    <div style={{
+                      padding: '8px 12px',
+                      background: '#f5f3ff',
+                      border: '1px solid #ddd6fe',
                       borderRadius: '10px',
-                      color: '#0f172a',
-                      fontSize: '0.92rem',
-                      outline: 'none',
-                      letterSpacing: '0.04em',
-                      fontWeight: 600
-                    }}
-                  />
-
-                  {lookingUp && (
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>
-                      Checking account database...
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '0.8rem'
+                    }}>
+                      <span style={{ color: '#6b21a8', fontWeight: 600 }}>Nexora Platinum Hybrid Line</span>
+                      <span style={{ color: '#581c87', fontWeight: 800 }}>Available: {formatINR(cardData?.available_credit ?? 150000)}</span>
                     </div>
                   )}
 
-                  {recipientInfo && (
-                    <div style={{
-                      marginTop: '8px',
-                      padding: '10px 14px',
-                      background: '#f0fdf4',
-                      border: '1px solid #bbf7d0',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      color: '#166534',
-                      fontSize: '0.86rem'
-                    }}>
-                      <UserCheck size={18} color="#16a34a" />
+                  {/* Channel: Inter-Bank vs Internal */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                      Transfer Destination
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setTransferType('INTER_BANK')}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: transferType === 'INTER_BANK' ? '#1d4ed8' : '#f1f5f9',
+                          color: transferType === 'INTER_BANK' ? '#ffffff' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Landmark size={14} /> SBI / Other Banks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTransferType('INTERNAL')}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: transferType === 'INTERNAL' ? '#0f172a' : '#f1f5f9',
+                          color: transferType === 'INTERNAL' ? '#ffffff' : '#64748b',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Send size={14} /> Nexora Internal
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inter-Bank Directory Fields */}
+                  {transferType === 'INTER_BANK' ? (
+                    <>
                       <div>
-                        <strong>Verified:</strong> {recipientInfo.name} ({recipientInfo.accountType})
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                          Select Bank
+                        </label>
+                        <select
+                          value={selectedBankCode}
+                          onChange={(e) => setSelectedBankCode(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#f8fafc',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '10px',
+                            color: '#0f172a',
+                            fontSize: '0.86rem',
+                            fontWeight: 600,
+                            outline: 'none'
+                          }}
+                        >
+                          {banks.map(b => (
+                            <option key={b.bank_code} value={b.bank_code}>
+                              {b.bank_name} ({b.short_name})
+                            </option>
+                          ))}
+                        </select>
                       </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                          Select Branch
+                        </label>
+                        <select
+                          value={selectedBranchCode}
+                          onChange={(e) => setSelectedBranchCode(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#f8fafc',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '10px',
+                            color: '#0f172a',
+                            fontSize: '0.86rem',
+                            outline: 'none'
+                          }}
+                          disabled={branches.length === 0}
+                        >
+                          {branches.map(br => (
+                            <option key={br.branch_code} value={br.branch_code}>
+                              {br.branch_name} — {br.city} (IFSC: {br.ifsc_code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                          Beneficiary Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Rahul Sharma"
+                          value={beneficiaryName}
+                          onChange={(e) => setBeneficiaryName(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#f8fafc',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '10px',
+                            color: '#0f172a',
+                            fontSize: '0.88rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                          Beneficiary Account Number
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 30910048122"
+                          value={interBankAcc}
+                          onChange={(e) => setInterBankAcc(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#f8fafc',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '10px',
+                            color: '#0f172a',
+                            fontSize: '0.88rem',
+                            fontFamily: 'var(--font-mono)',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* Internal Nexora Transfer */
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                        Recipient Account Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. ABMS-1004-7733 or NEX-4582-8821"
+                        value={recipientAccount}
+                        onChange={(e) => setRecipientAccount(e.target.value.toUpperCase())}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '11px 14px',
+                          background: '#f8fafc',
+                          border: '1.5px solid #cbd5e1',
+                          borderRadius: '10px',
+                          color: '#0f172a',
+                          fontSize: '0.92rem',
+                          outline: 'none',
+                          letterSpacing: '0.04em',
+                          fontWeight: 600
+                        }}
+                      />
+
+                      {lookingUp && (
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>
+                          Checking account database...
+                        </div>
+                      )}
+
+                      {recipientInfo && (
+                        <div style={{
+                          marginTop: '8px',
+                          padding: '10px 14px',
+                          background: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          color: '#166534',
+                          fontSize: '0.86rem'
+                        }}>
+                          <UserCheck size={18} color="#16a34a" />
+                          <div>
+                            <strong>Verified:</strong> {recipientInfo.name} ({recipientInfo.accountType})
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
